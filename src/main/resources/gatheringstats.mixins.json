@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "com.rousoftware.wynngatheringstats.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "FeatureManagerInvoker",
+    "FeatureManagerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

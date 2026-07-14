@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "wynngatheringstats",
+  "version": "${version}",
+  "name": "WynnCraft Gathering Stats",
+  "description": "Show your session stats while gathering in Wynncraft!",
+  "authors": [
+    "Dospacite"
+  ],
+  "contact": {
+    "homepage": "https://github.com/Dospacite/WynnCraft-Gathering-Stats",
+    "sources": "https://github.com/Dospacite/WynnCraft-Gathering-Stats",
+    "issues": "https://github.com/Dospacite/WynnCraft-Gathering-Stats/issues"
+  },
+  "license": "MIT",
+  "icon": "assets/wynngatheringstats/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.rousoftware.wynngatheringstats.GatheringStatsClient"
+    ]
+  },
+  "mixins": [
+    "gatheringstats.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.18.4",
+    "minecraft": "1.21.11",
+    "java": ">=21",
+    "wynntils": ">=4.2.2"
+  }
+}
