@@ -4,7 +4,8 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "FeatureManagerInvoker",
-    "FeatureManagerMixin"
+    "FeatureManagerMixin",
+    "LabelInfoAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

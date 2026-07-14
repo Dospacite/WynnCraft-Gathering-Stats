@@ -1,5 +1,6 @@
 package com.rousoftware.wynngatheringstats.stats;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
@@ -8,6 +9,10 @@ public record TrackerSnapshot(
         BombState bombState,
         OptionalDouble xpPerNode,
         OptionalDouble secondsPerNode,
+        OptionalDouble oneStarItemsPerHour,
+        OptionalDouble twoStarItemsPerHour,
+        OptionalDouble threeStarItemsPerHour,
+        Map<MaterialKey, Double> materialItemsPerHour,
         int xpSampleCount,
         int durationSampleCount,
         boolean levelUpdatePending) {

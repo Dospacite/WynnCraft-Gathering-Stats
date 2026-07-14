@@ -1,7 +1,13 @@
 package com.rousoftware.wynngatheringstats.stats;
 
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 
 public final class GatheringStatsTracker {
     public static final int DEFAULT_WINDOW_SIZE = 20;
@@ -11,8 +17,10 @@ public final class GatheringStatsTracker {
 
     private static final long NO_TIMESTAMP = Long.MIN_VALUE;
 
-    private final RollingAverage xpPerNode;
-    private final RollingAverage secondsPerNode;
+    private RollingAverage xpPerNode;
+    private RollingAverage secondsPerNode;
+    private int windowSize;
+    private final Deque<Map<MaterialKey, Integer>> materialsByNode = new ArrayDeque<>();
     private final long idleTimeoutNanos;
     private final long levelUpdateTimeoutNanos;
 
@@ -28,6 +36,10 @@ public final class GatheringStatsTracker {
         this(DEFAULT_WINDOW_SIZE, DEFAULT_IDLE_TIMEOUT, LEVEL_UPDATE_TIMEOUT);
     }
 
+    public GatheringStatsTracker(int windowSize) {
+        this(windowSize, DEFAULT_IDLE_TIMEOUT, LEVEL_UPDATE_TIMEOUT);
+    }
+
     GatheringStatsTracker(int windowSize, Duration idleTimeout, Duration levelUpdateTimeout) {
         if (idleTimeout.isNegative() || idleTimeout.isZero()) {
             throw new IllegalArgumentException("idle timeout must be positive");
@@ -38,6 +50,7 @@ public final class GatheringStatsTracker {
 
         xpPerNode = new RollingAverage(windowSize);
         secondsPerNode = new RollingAverage(windowSize);
+        this.windowSize = windowSize;
         idleTimeoutNanos = idleTimeout.toNanos();
         levelUpdateTimeoutNanos = levelUpdateTimeout.toNanos();
     }
@@ -70,6 +83,11 @@ public final class GatheringStatsTracker {
             secondsPerNode.add((nowNanos - lastNodeNanos) / 1_000_000_000d);
         }
 
+        materialsByNode.addLast(new HashMap<>());
+        if (materialsByNode.size() > windowSize) {
+            materialsByNode.removeFirst();
+        }
+
         lastNodeNanos = nowNanos;
         lastActivityNanos = nowNanos;
 
@@ -79,6 +97,16 @@ public final class GatheringStatsTracker {
             levelBeforeUpdate = currentLevel;
             levelUpdateStartedNanos = nowNanos;
         }
+    }
+
+    public synchronized boolean recordMaterial(String name, int tier, int amount) {
+        if (materialsByNode.isEmpty() || amount <= 0) {
+            return false;
+        }
+
+        MaterialKey key = new MaterialKey(name, tier);
+        materialsByNode.getLast().merge(key, amount, Integer::sum);
+        return true;
     }
 
     public synchronized void updateEnvironment(BombState currentBombState, int currentLevel, long nowNanos) {
@@ -94,12 +122,34 @@ public final class GatheringStatsTracker {
         clearSession();
     }
 
+    public synchronized void setWindowSize(int newWindowSize) {
+        if (newWindowSize <= 0) {
+            throw new IllegalArgumentException("window size must be positive");
+        }
+        if (newWindowSize == windowSize) {
+            return;
+        }
+
+        windowSize = newWindowSize;
+        xpPerNode = new RollingAverage(newWindowSize);
+        secondsPerNode = new RollingAverage(newWindowSize);
+        materialsByNode.clear();
+        lastNodeNanos = NO_TIMESTAMP;
+        lastActivityNanos = NO_TIMESTAMP;
+        clearPendingLevelUpdate();
+    }
+
     public synchronized TrackerSnapshot snapshot() {
+        MaterialRates materialRates = calculateMaterialRates();
         return new TrackerSnapshot(
                 Optional.ofNullable(profession),
                 bombState,
                 xpPerNode.average(),
                 secondsPerNode.average(),
+                materialRates.tierRate(1),
+                materialRates.tierRate(2),
+                materialRates.tierRate(3),
+                materialRates.byMaterial(),
                 xpPerNode.size(),
                 secondsPerNode.size(),
                 levelUpdatePending);
@@ -111,6 +161,7 @@ public final class GatheringStatsTracker {
         }
         if (currentBombState.professionSpeedActive() != bombState.professionSpeedActive()) {
             secondsPerNode.clear();
+            materialsByNode.clear();
             lastNodeNanos = NO_TIMESTAMP;
         }
         bombState = currentBombState;
@@ -126,6 +177,7 @@ public final class GatheringStatsTracker {
 
         xpPerNode.clear();
         secondsPerNode.clear();
+        materialsByNode.clear();
         lastNodeNanos = NO_TIMESTAMP;
         lastActivityNanos = NO_TIMESTAMP;
         clearPendingLevelUpdate();
@@ -147,6 +199,7 @@ public final class GatheringStatsTracker {
         profession = null;
         xpPerNode.clear();
         secondsPerNode.clear();
+        materialsByNode.clear();
         lastNodeNanos = NO_TIMESTAMP;
         lastActivityNanos = NO_TIMESTAMP;
         clearPendingLevelUpdate();
@@ -156,5 +209,38 @@ public final class GatheringStatsTracker {
         levelUpdatePending = false;
         levelBeforeUpdate = 0;
         levelUpdateStartedNanos = NO_TIMESTAMP;
+    }
+
+    private MaterialRates calculateMaterialRates() {
+        OptionalDouble averageSeconds = secondsPerNode.average();
+        if (materialsByNode.isEmpty()
+                || averageSeconds.isEmpty()
+                || averageSeconds.getAsDouble() <= 0
+                || materialsByNode.stream().allMatch(Map::isEmpty)) {
+            return MaterialRates.UNAVAILABLE;
+        }
+
+        double nodesPerHour = 3_600d / averageSeconds.getAsDouble();
+        double scale = nodesPerHour / materialsByNode.size();
+        double[] byTier = new double[3];
+        Map<MaterialKey, Double> byMaterial = new HashMap<>();
+
+        for (Map<MaterialKey, Integer> node : materialsByNode) {
+            for (Map.Entry<MaterialKey, Integer> entry : node.entrySet()) {
+                double itemsPerHour = entry.getValue() * scale;
+                byTier[entry.getKey().tier() - 1] += itemsPerHour;
+                byMaterial.merge(entry.getKey(), itemsPerHour, Double::sum);
+            }
+        }
+
+        return new MaterialRates(byTier, Collections.unmodifiableMap(byMaterial), true);
+    }
+
+    private record MaterialRates(double[] byTier, Map<MaterialKey, Double> byMaterial, boolean available) {
+        private static final MaterialRates UNAVAILABLE = new MaterialRates(new double[3], Map.of(), false);
+
+        private OptionalDouble tierRate(int tier) {
+            return available ? OptionalDouble.of(byTier[tier - 1]) : OptionalDouble.empty();
+        }
     }
 }

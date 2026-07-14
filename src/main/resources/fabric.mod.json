@@ -28,5 +28,8 @@
     "minecraft": "1.21.11",
     "java": ">=21",
     "wynntils": ">=4.2.2"
+  },
+  "suggests": {
+    "wynnventory": ">=2.2.1"
   }
 }

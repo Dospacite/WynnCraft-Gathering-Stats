@@ -43,6 +43,29 @@ class GatheringStatsTrackerTest {
     }
 
     @Test
+    void configurableWindowAppliesToXpAndResetsExistingSamples() {
+        GatheringStatsTracker tracker = new GatheringStatsTracker(3, Duration.ofMinutes(5), Duration.ofSeconds(5));
+        for (int i = 1; i <= 5; i++) {
+            tracker.recordNode(GatheringProfession.MINING, i, i, 20, BombState.NONE, i * SECOND);
+        }
+
+        assertEquals(3, tracker.snapshot().xpSampleCount());
+        assertEquals(4, tracker.snapshot().xpPerNode().orElseThrow(), 0.0001);
+
+        tracker.setWindowSize(2);
+        TrackerSnapshot resized = tracker.snapshot();
+        assertEquals(GatheringProfession.MINING, resized.profession().orElseThrow());
+        assertTrue(resized.xpPerNode().isEmpty());
+        assertTrue(resized.secondsPerNode().isEmpty());
+
+        tracker.recordNode(GatheringProfession.MINING, 10, 6, 20, BombState.NONE, 6 * SECOND);
+        tracker.recordNode(GatheringProfession.MINING, 20, 7, 20, BombState.NONE, 7 * SECOND);
+        tracker.recordNode(GatheringProfession.MINING, 30, 8, 20, BombState.NONE, 8 * SECOND);
+        assertEquals(2, tracker.snapshot().xpSampleCount());
+        assertEquals(25, tracker.snapshot().xpPerNode().orElseThrow(), 0.0001);
+    }
+
+    @Test
     void bombChangesResetOnlyTheAffectedMetric() {
         GatheringStatsTracker tracker = tracker();
 
@@ -59,10 +82,15 @@ class GatheringStatsTrackerTest {
         assertEquals(40, tracker.snapshot().xpPerNode().orElseThrow(), 0.0001);
         assertEquals(10, tracker.snapshot().secondsPerNode().orElseThrow(), 0.0001);
 
-        BombState bothBombs = new BombState(true, true);
+        tracker.updateEnvironment(BombState.NONE, 40, 20 * SECOND + 1);
+        assertTrue(tracker.snapshot().xpPerNode().isEmpty());
+        tracker.recordNode(GatheringProfession.FISHING, 20, 12.5, 40, BombState.NONE, 21 * SECOND);
+        assertEquals(20, tracker.snapshot().xpPerNode().orElseThrow(), 0.0001);
+
+        BombState bothBombs = new BombState(false, true);
         tracker.updateEnvironment(bothBombs, 40, 21 * SECOND);
         TrackerSnapshot afterSpeedBomb = tracker.snapshot();
-        assertEquals(40, afterSpeedBomb.xpPerNode().orElseThrow(), 0.0001);
+        assertEquals(20, afterSpeedBomb.xpPerNode().orElseThrow(), 0.0001);
         assertTrue(afterSpeedBomb.secondsPerNode().isEmpty());
 
         tracker.recordNode(GatheringProfession.FISHING, 50, 13, 40, bothBombs, 30 * SECOND);
@@ -116,6 +144,38 @@ class GatheringStatsTrackerTest {
         tracker.recordNode(GatheringProfession.MINING, 10, 100, 6, BombState.NONE, 2 * SECOND);
         tracker.updateEnvironment(BombState.NONE, 6, 7 * SECOND);
         assertFalse(tracker.snapshot().levelUpdatePending());
+    }
+
+    @Test
+    void calculatesPerTierAndPerMaterialHourlyRates() {
+        GatheringStatsTracker tracker = tracker();
+        tracker.recordNode(GatheringProfession.MINING, 10, 1, 10, BombState.NONE, 0);
+        tracker.recordMaterial("Copper Ingot", 1, 2);
+        tracker.recordNode(GatheringProfession.MINING, 10, 2, 10, BombState.NONE, 10 * SECOND);
+        tracker.recordMaterial("Copper Ingot", 2, 1);
+
+        TrackerSnapshot snapshot = tracker.snapshot();
+        assertEquals(360, snapshot.oneStarItemsPerHour().orElseThrow(), 0.0001);
+        assertEquals(180, snapshot.twoStarItemsPerHour().orElseThrow(), 0.0001);
+        assertEquals(0, snapshot.threeStarItemsPerHour().orElseThrow(), 0.0001);
+        assertEquals(360, snapshot.materialItemsPerHour().get(new MaterialKey("Copper Ingot", 1)), 0.0001);
+        assertEquals(180, snapshot.materialItemsPerHour().get(new MaterialKey("Copper Ingot", 2)), 0.0001);
+    }
+
+    @Test
+    void itemRatesWaitForTimingAndResetWithSpeedChanges() {
+        GatheringStatsTracker tracker = tracker();
+        tracker.recordNode(GatheringProfession.FARMING, 10, 1, 10, BombState.NONE, 0);
+        tracker.recordMaterial("Wheat Grains", 1, 1);
+        assertTrue(tracker.snapshot().oneStarItemsPerHour().isEmpty());
+
+        tracker.recordNode(GatheringProfession.FARMING, 10, 2, 10, BombState.NONE, 10 * SECOND);
+        tracker.recordMaterial("Wheat Grains", 1, 1);
+        assertTrue(tracker.snapshot().oneStarItemsPerHour().isPresent());
+
+        tracker.updateEnvironment(new BombState(false, true), 10, 11 * SECOND);
+        assertTrue(tracker.snapshot().oneStarItemsPerHour().isEmpty());
+        assertTrue(tracker.snapshot().materialItemsPerHour().isEmpty());
     }
 
     private GatheringStatsTracker tracker() {
