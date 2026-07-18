@@ -21,7 +21,7 @@ public final class GatheringStatsTracker {
     private RollingAverage secondsPerNode;
     private int windowSize;
     private final Deque<Map<MaterialKey, Integer>> materialsByNode = new ArrayDeque<>();
-    private final long idleTimeoutNanos;
+    private long idleTimeoutNanos;
     private final long levelUpdateTimeoutNanos;
 
     private GatheringProfession profession;
@@ -139,6 +139,13 @@ public final class GatheringStatsTracker {
         clearPendingLevelUpdate();
     }
 
+    public synchronized void setIdleTimeout(Duration idleTimeout) {
+        if (idleTimeout.isNegative() || idleTimeout.isZero()) {
+            throw new IllegalArgumentException("idle timeout must be positive");
+        }
+        idleTimeoutNanos = idleTimeout.toNanos();
+    }
+
     public synchronized TrackerSnapshot snapshot() {
         MaterialRates materialRates = calculateMaterialRates();
         return new TrackerSnapshot(
@@ -152,6 +159,7 @@ public final class GatheringStatsTracker {
                 materialRates.byMaterial(),
                 xpPerNode.size(),
                 secondsPerNode.size(),
+                lastActivityNanos != NO_TIMESTAMP,
                 levelUpdatePending);
     }
 

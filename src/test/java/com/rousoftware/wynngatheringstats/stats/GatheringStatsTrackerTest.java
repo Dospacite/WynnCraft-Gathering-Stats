@@ -109,12 +109,27 @@ class GatheringStatsTrackerTest {
 
         TrackerSnapshot idle = tracker.snapshot();
         assertEquals(GatheringProfession.WOODCUTTING, idle.profession().orElseThrow());
+        assertFalse(idle.active());
         assertTrue(idle.xpPerNode().isEmpty());
         assertTrue(idle.secondsPerNode().isEmpty());
 
         tracker.recordNode(GatheringProfession.WOODCUTTING, 30, 3, 10, BombState.NONE, 311 * SECOND);
         assertEquals(30, tracker.snapshot().xpPerNode().orElseThrow(), 0.0001);
         assertTrue(tracker.snapshot().secondsPerNode().isEmpty());
+    }
+
+    @Test
+    void inactivityWindowCanBeReconfiguredWithoutLosingCurrentSamples() {
+        GatheringStatsTracker tracker = tracker();
+        tracker.recordNode(GatheringProfession.MINING, 10, 1, 10, BombState.NONE, 0);
+        tracker.setIdleTimeout(Duration.ofMinutes(2));
+
+        tracker.updateEnvironment(BombState.NONE, 10, 119 * SECOND);
+        assertTrue(tracker.snapshot().active());
+
+        tracker.updateEnvironment(BombState.NONE, 10, 120 * SECOND);
+        assertFalse(tracker.snapshot().active());
+        assertEquals(GatheringProfession.MINING, tracker.snapshot().profession().orElseThrow());
     }
 
     @Test

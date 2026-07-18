@@ -22,6 +22,21 @@ public final class StatsFormatter {
         return value.isPresent() ? String.format(Locale.US, "%,d", value.getAsLong()) : UNAVAILABLE;
     }
 
+    public static String integer(long value) {
+        return String.format(Locale.US, "%,d", value);
+    }
+
+    public static String marketCost(OptionalDouble emeralds) {
+        if (emeralds.isEmpty() || !Double.isFinite(emeralds.getAsDouble()) || emeralds.getAsDouble() < 0) {
+            return UNAVAILABLE;
+        }
+        double value = emeralds.getAsDouble();
+        if (value >= 4_096d) {
+            return decimalFormat().format(value / 4_096d) + " LE";
+        }
+        return decimalFormat().format(value / 64d) + " EB";
+    }
+
     public static String duration(OptionalDouble seconds) {
         if (seconds.isEmpty() || !Double.isFinite(seconds.getAsDouble()) || seconds.getAsDouble() < 0) {
             return UNAVAILABLE;

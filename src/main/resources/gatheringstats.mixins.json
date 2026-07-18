@@ -3,9 +3,11 @@
   "package": "com.rousoftware.wynngatheringstats.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "ClientPacketListenerMixin",
     "FeatureManagerInvoker",
     "FeatureManagerMixin",
-    "LabelInfoAccessor"
+    "LabelInfoAccessor",
+    "ProfessionModelAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

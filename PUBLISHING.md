@@ -22,8 +22,8 @@ The workflow declares Wynntils 4.2.2 or newer as a required Modrinth dependency 
 4. Tag that commit with the same version prefixed by `v`, then push the tag:
 
    ```sh
-   git tag v1.0.0
-   git push origin v1.0.0
+   git tag v1.0.1
+   git push origin v1.0.1
    ```
 
 The workflow rejects a tag if it does not match `mod_version`. Successful runs create a public GitHub Release and upload the version to both marketplaces.

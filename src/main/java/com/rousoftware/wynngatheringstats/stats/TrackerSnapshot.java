@@ -15,8 +15,9 @@ public record TrackerSnapshot(
         Map<MaterialKey, Double> materialItemsPerHour,
         int xpSampleCount,
         int durationSampleCount,
+        boolean activityWindowActive,
         boolean levelUpdatePending) {
     public boolean active() {
-        return profession.isPresent();
+        return profession.isPresent() && activityWindowActive;
     }
 }

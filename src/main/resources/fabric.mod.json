@@ -3,7 +3,7 @@
   "id": "wynngatheringstats",
   "version": "${version}",
   "name": "WynnCraft Gathering Stats",
-  "description": "Show your session stats while gathering in Wynncraft!",
+  "description": "Show your gathering, crafting, and combat session stats in Wynncraft!",
   "authors": [
     "Dospacite"
   ],

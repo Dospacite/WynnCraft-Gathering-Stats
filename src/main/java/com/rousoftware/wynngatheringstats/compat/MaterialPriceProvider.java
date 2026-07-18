@@ -18,4 +18,8 @@ public interface MaterialPriceProvider {
     boolean isAvailable();
 
     OptionalDouble getUnitPrice(String materialName, int tier, MaterialPriceMode priceMode);
+
+    default OptionalDouble getUnitPrice(String itemName, MaterialPriceMode priceMode) {
+        return OptionalDouble.empty();
+    }
 }

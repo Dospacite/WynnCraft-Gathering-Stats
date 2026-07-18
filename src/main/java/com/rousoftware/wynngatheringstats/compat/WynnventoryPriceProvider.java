@@ -14,6 +14,16 @@ final class WynnventoryPriceProvider implements MaterialPriceProvider {
     @Override
     public OptionalDouble getUnitPrice(String materialName, int tier, MaterialPriceMode priceMode) {
         TrademarketItemSnapshot snapshot = TrademarketService.INSTANCE.getItem(materialName, tier);
+        return getPrice(snapshot, priceMode);
+    }
+
+    @Override
+    public OptionalDouble getUnitPrice(String itemName, MaterialPriceMode priceMode) {
+        TrademarketItemSnapshot snapshot = TrademarketService.INSTANCE.getItem(itemName);
+        return getPrice(snapshot, priceMode);
+    }
+
+    private OptionalDouble getPrice(TrademarketItemSnapshot snapshot, MaterialPriceMode priceMode) {
         if (snapshot == null || snapshot.live() == null) {
             return OptionalDouble.empty();
         }

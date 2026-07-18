@@ -29,4 +29,12 @@ class StatsFormatterTest {
         assertEquals(StatsFormatter.UNAVAILABLE, StatsFormatter.levelMetric(ProgressState.SYNCING, OptionalLong.empty()));
         assertEquals("38", StatsFormatter.levelMetric(ProgressState.READY, OptionalLong.of(38)));
     }
+
+    @Test
+    void formatsProjectedMarketCostsAsEbOrLe() {
+        assertEquals("32.0 EB", StatsFormatter.marketCost(OptionalDouble.of(2048)));
+        assertEquals("1.0 LE", StatsFormatter.marketCost(OptionalDouble.of(4096)));
+        assertEquals("2.5 LE", StatsFormatter.marketCost(OptionalDouble.of(10240)));
+        assertEquals(StatsFormatter.UNAVAILABLE, StatsFormatter.marketCost(OptionalDouble.empty()));
+    }
 }
